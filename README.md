@@ -15,6 +15,12 @@
 
 ---
 
+<p align="center">
+  <img src="docs/dashboard-screenshot.png" alt="Prism Dashboard" width="800">
+</p>
+
+---
+
 ## The Problem
 
 Companies deploying Claude across Legal, Sales, Engineering, HR, and Finance teams have zero visibility into what it's costing them. "What did Claude cost us this month?" has no answer. Anthropic's console shows total spend — but not *who* spent it, *which model*, or *whether it was worth it*.
@@ -154,7 +160,7 @@ The dashboard has 4 main views:
 | **Request Logs** | Paginated table of every request — time, key, model, input/output tokens, cost, latency, status code |
 | **Login** | Email/password auth with JWT sessions |
 
-> Screenshots coming soon. Run `python seed.py` and see it yourself.
+Run `python seed.py` to see it with realistic data instantly.
 
 ## Tech Stack
 

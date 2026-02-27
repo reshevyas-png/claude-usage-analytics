@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prism — AI Cost & Usage Analytics</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base: #0A0B0F;
+  --bg-elevated: rgba(255,255,255,0.03);
+  --bg-glass: rgba(255,255,255,0.05);
+  --bg-glass-hover: rgba(255,255,255,0.09);
+  --border-glass: rgba(255,255,255,0.07);
+  --border-glass-hover: rgba(255,255,255,0.14);
+  --text-primary: #F5F5F7;
+  --text-secondary: rgba(255,255,255,0.55);
+  --text-tertiary: rgba(255,255,255,0.32);
+  --accent-amber: #F59E0B;
+  --accent-amber-glow: rgba(245,158,11,0.12);
+  --accent-violet: #8B5CF6;
+  --accent-violet-glow: rgba(139,92,246,0.10);
+  --accent-emerald: #10B981;
+  --accent-rose: #F43F5E;
+  --accent-sky: #38BDF8;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient mesh gradient background */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; left: -200px;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -300px; right: -200px;
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Layout */
+.app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: rgba(255,255,255,0.02);
+  border-right: 1px solid var(--border-glass);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 24px;
+  border-bottom: 1px solid var(--border-glass);
+  margin-bottom: 20px;
+}
+.logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent-amber), var(--accent-violet));
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+.logo-text { font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+  position: relative;
+}
+.nav-item:hover { background: var(--bg-glass); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--accent-amber-glow);
+  color: var(--text-primary);
+  border-left: 2px solid var(--accent-amber);
+  margin-left: -2px;
+}
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  right: 12px; top: 50%; transform: translateY(-50%);
+  width: 6px; height: 6px;
+  background: var(--accent-amber);
+  border-radius: 50%;
+}
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-divider { height: 1px; background: var(--border-glass); margin: 12px 8px; }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 12px;
+  border-top: 1px solid var(--border-glass);
+}
+.org-name { font-size: 13px; font-weight: 600; }
+.org-plan { font-size: 11px; color: var(--accent-amber); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Main content */
+.main {
+  flex: 1;
+  padding: 24px 32px 48px;
+  max-width: 1200px;
+}
+
+/* Top bar */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.top-right { display: flex; align-items: center; gap: 12px; }
+.date-toggle {
+  display: flex;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.date-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  transition: all 150ms ease;
+}
+.date-btn:hover { color: var(--text-primary); }
+.date-btn.active {
+  background: var(--accent-amber);
+  color: #000;
+  border-radius: 6px;
+}
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-sky));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ---- HERO CARD ---- */
+.hero-card {
+  position: relative;
+  padding: 28px 32px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid transparent;
+  margin-bottom: 24px;
+  overflow: hidden;
+  animation: fadeSlideUp 600ms ease-out both;
+}
+/* Animated gradient border */
+.hero-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-xl);
+  padding: 1px;
+  background: linear-gradient(var(--hero-angle, 135deg), var(--accent-amber), var(--accent-violet), var(--accent-sky), var(--accent-amber));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradientSpin 6s linear infinite;
+  z-index: -1;
+}
+/* Inner ambient glow */
+.hero-card::after {
+  content: '';
+  position: absolute;
+  top: -60px; left: -40px;
+  width: 300px; height: 200px;
+  background: radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+@keyframes gradientSpin {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-amber);
+  margin-bottom: 12px;
+}
+.hero-label-dot {
+  width: 6px; height: 6px;
+  background: var(--accent-amber);
+  border-radius: 50%;
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+.hero-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 400; }
+.hero-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.hero-context {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+.hero-desc { font-size: 13px; color: var(--text-secondary); }
+.hero-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(16,185,129,0.12);
+  color: var(--accent-emerald);
+}
+
+/* Budget bar */
+.budget-section { margin-top: 20px; }
+.budget-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.budget-label { font-size: 12px; color: var(--text-tertiary); font-weight: 500; }
+.budget-value { font-size: 12px; color: var(--text-secondary); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.budget-track {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.budget-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-emerald), var(--accent-amber));
+  width: 0%;
+  animation: budgetGrow 1.5s ease-out 0.8s forwards;
+}
+@keyframes budgetGrow { to { width: 68%; } }
+
+/* ---- KPI CARDS ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  animation: fadeSlideUp 500ms ease-out both;
+}
+.kpi-card:nth-child(1) { animation-delay: 200ms; }
+.kpi-card:nth-child(2) { animation-delay: 300ms; }
+.kpi-card:nth-child(3) { animation-delay: 400ms; }
+.kpi-card:nth-child(4) { animation-delay: 500ms; }
+.kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-glass-hover);
+  background: var(--bg-glass-hover);
+}
+.kpi-label { font-size: 12px; font-weight: 500; color: var(--text-tertiary); letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 8px; }
+.kpi-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.kpi-footer { display: flex; align-items: center; justify-content: space-between; }
+.kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.kpi-delta.up-good { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
+.kpi-delta.up-bad { background: rgba(244,63,94,0.12); color: var(--accent-rose); }
+.kpi-delta.down-good { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
+.kpi-period { font-size: 11px; color: var(--text-tertiary); }
+
+/* Sparkline */
+.sparkline { margin-top: 12px; }
+.sparkline svg { width: 100%; height: 32px; }
+.spark-line { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.spark-area { opacity: 0.12; }
+.spark-amber .spark-line { stroke: var(--accent-amber); }
+.spark-amber .spark-area { fill: var(--accent-amber); }
+.spark-violet .spark-line { stroke: var(--accent-violet); }
+.spark-violet .spark-area { fill: var(--accent-violet); }
+.spark-sky .spark-line { stroke: var(--accent-sky); }
+.spark-sky .spark-area { fill: var(--accent-sky); }
+.spark-emerald .spark-line { stroke: var(--accent-emerald); }
+.spark-emerald .spark-area { fill: var(--accent-emerald); }
+
+/* ---- CHARTS ROW ---- */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.chart-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  animation: fadeSlideUp 500ms ease-out 600ms both;
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.chart-title { font-size: 15px; font-weight: 600; }
+.chart-toggle {
+  display: flex;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+}
+.chart-toggle-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  transition: all 150ms ease;
+}
+.chart-toggle-btn.active { background: var(--bg-glass-hover); color: var(--text-primary); }
+.chart-toggle-btn:hover { color: var(--text-secondary); }
+
+/* Area chart placeholder using SVG */
+.area-chart-container { position: relative; height: 220px; }
+.area-chart-container svg { width: 100%; height: 100%; }
+
+/* Donut chart */
+.donut-section { display: flex; flex-direction: column; align-items: center; }
+.donut-container { position: relative; width: 160px; height: 160px; margin: 0 auto 20px; }
+.donut-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-total-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.donut-total-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; }
+
+.legend { width: 100%; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+.legend-left { display: flex; align-items: center; gap: 8px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.legend-name { font-size: 13px; color: var(--text-secondary); }
+.legend-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: rgba(255,255,255,0.04); border-radius: 2px; overflow: hidden; }
+.legend-bar { height: 100%; border-radius: 2px; transition: width 1s ease-out; }
+.legend-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary); font-weight: 500; min-width: 90px; text-align: right; }
+
+/* ---- TABLE ---- */
+.table-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  animation: fadeSlideUp 500ms ease-out 800ms both;
+}
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 16px 14px;
+  border-bottom: 1px solid var(--border-glass);
+}
+td {
+  padding: 14px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+tr { transition: background 100ms ease; cursor: pointer; }
+tr:hover td { background: var(--bg-glass); }
+.plugin-name { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.plugin-icon {
+  width: 30px; height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.td-mono { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+.td-team { color: var(--text-secondary); }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(16,185,129,0.1);
+  color: var(--accent-emerald);
+}
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* Fade/slide animation */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .sidebar { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+  .main { padding: 20px; }
+}
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .hero-amount { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      <span class="logo-text">Prism</span>
+    </div>
+    <div class="nav-item active">
+      <span class="nav-icon">◉</span> Dashboard
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◈</span> Cost Explorer
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◎</span> Teams & Users
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⬡</span> Plugins
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◬</span> Alerts & Budgets
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⚿</span> API Keys
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-item">
+      <span class="nav-icon">↗</span> Docs
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◌</span> Support
+    </div>
+    <div class="sidebar-footer">
+      <div class="org-name">Acme Corp</div>
+      <div class="org-plan">Growth Plan</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <h1 class="page-title">Dashboard</h1>
+      <div class="top-right">
+        <div class="date-toggle">
+          <button class="date-btn">7d</button>
+          <button class="date-btn active">30d</button>
+          <button class="date-btn">90d</button>
+        </div>
+        <div class="avatar">RV</div>
+      </div>
+    </div>
+
+    <!-- Hero Card -->
+    <div class="hero-card">
+      <div class="hero-label">
+        <span class="hero-label-dot"></span>
+        ROI Insight
+      </div>
+      <div class="hero-subtitle">Your teams saved an estimated</div>
+      <div class="hero-amount" id="heroAmount">$0</div>
+      <div class="hero-context">
+        <span class="hero-desc">in manual labor costs this month</span>
+        <span class="hero-delta">↑ 23% vs last month</span>
+      </div>
+      <div class="budget-section">
+        <div class="budget-header">
+          <span class="budget-label">Monthly budget</span>
+          <span class="budget-value">$8,640 / $12,500</span>
+        </div>
+        <div class="budget-track">
+          <div class="budget-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Spend</div>
+        <div class="kpi-value" id="kpi1">$0</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up-bad">↑ 12.3%</span>
+          <span class="kpi-period">30d</span>
+        </div>
+        <div class="sparkline spark-amber">
+          <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+            <path class="spark-area" d="M0,28 L8,24 L16,26 L24,20 L32,22 L40,18 L48,16 L56,19 L64,14 L72,12 L80,15 L88,10 L96,8 L104,11 L112,6 L120,4 L120,32 L0,32 Z"/>
+            <path class="spark-line" d="M0,28 L8,24 L16,26 L24,20 L32,22 L40,18 L48,16 L56,19 L64,14 L72,12 L80,15 L88,10 L96,8 L104,11 L112,6 L120,4"/>
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Requests</div>
+        <div class="kpi-value" id="kpi2">0</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up-good">↑ 34.7%</span>
+          <span class="kpi-period">30d</span>
+        </div>
+        <div class="sparkline spark-violet">
+          <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+            <path class="spark-area" d="M0,30 L8,28 L16,25 L24,27 L32,22 L40,20 L48,23 L56,18 L64,15 L72,17 L80,12 L88,14 L96,9 L104,7 L112,10 L120,5 L120,32 L0,32 Z"/>
+            <path class="spark-line" d="M0,30 L8,28 L16,25 L24,27 L32,22 L40,20 L48,23 L56,18 L64,15 L72,17 L80,12 L88,14 L96,9 L104,7 L112,10 L120,5"/>
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Cost / Request</div>
+        <div class="kpi-value" id="kpi3">$0</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta down-good">↓ 8.2%</span>
+          <span class="kpi-period">30d</span>
+        </div>
+        <div class="sparkline spark-sky">
+          <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+            <path class="spark-area" d="M0,8 L8,10 L16,7 L24,12 L32,14 L40,11 L48,15 L56,13 L64,17 L72,19 L80,16 L88,20 L96,22 L104,19 L112,24 L120,26 L120,32 L0,32 Z"/>
+            <path class="spark-line" d="M0,8 L8,10 L16,7 L24,12 L32,14 L40,11 L48,15 L56,13 L64,17 L72,19 L80,16 L88,20 L96,22 L104,19 L112,24 L120,26"/>
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Est. Time Saved</div>
+        <div class="kpi-value" id="kpi4">0h</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up-good">↑ 18.5%</span>
+          <span class="kpi-period">30d</span>
+        </div>
+        <div class="sparkline spark-emerald">
+          <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+            <path class="spark-area" d="M0,26 L8,24 L16,22 L24,25 L32,20 L40,18 L48,21 L56,16 L64,13 L72,15 L80,11 L88,9 L96,12 L104,7 L112,5 L120,3 L120,32 L0,32 Z"/>
+            <path class="spark-line" d="M0,26 L8,24 L16,22 L24,25 L32,20 L40,18 L48,21 L56,16 L64,13 L72,15 L80,11 L88,9 L96,12 L104,7 L112,5 L120,3"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+      <!-- Area Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Spend Over Time</span>
+          <div class="chart-toggle">
+            <button class="chart-toggle-btn active">Stacked</button>
+            <button class="chart-toggle-btn">Combined</button>
+          </div>
+        </div>
+        <div class="area-chart-container">
+          <svg viewBox="0 0 600 200" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="50" x2="600" y2="50" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="100" x2="600" y2="100" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="150" x2="600" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+            <!-- Y-axis labels -->
+            <text x="0" y="48" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">$12K</text>
+            <text x="0" y="98" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">$8K</text>
+            <text x="0" y="148" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">$4K</text>
+
+            <!-- X-axis labels -->
+            <text x="40" y="195" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">Jan 28</text>
+            <text x="180" y="195" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">Feb 4</text>
+            <text x="320" y="195" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">Feb 11</text>
+            <text x="460" y="195" fill="rgba(255,255,255,0.25)" font-size="9" font-family="JetBrains Mono, monospace">Feb 18</text>
+
+            <!-- Gradient defs -->
+            <defs>
+              <linearGradient id="gradLegal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.02"/>
+              </linearGradient>
+              <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.02"/>
+              </linearGradient>
+              <linearGradient id="gradEng" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.02"/>
+              </linearGradient>
+              <linearGradient id="gradHR" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10B981" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#10B981" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Area layers (bottom to top: HR, Eng, Sales, Legal) -->
+            <path d="M40,165 C80,162 120,158 160,160 C200,155 240,148 280,145 C320,142 360,140 400,138 C440,135 480,130 520,128 C560,126 580,125 600,124 L600,180 L40,180 Z" fill="url(#gradHR)"/>
+            <path d="M40,145 C80,140 120,135 160,138 C200,130 240,125 280,120 C320,118 360,115 400,110 C440,108 480,105 520,100 C560,98 580,96 600,95 L600,124 C580,125 560,126 520,128 C480,130 440,135 400,138 C360,140 320,142 280,145 C240,148 200,155 160,160 C120,158 80,162 40,165 Z" fill="url(#gradEng)"/>
+            <path d="M40,120 C80,115 120,108 160,112 C200,105 240,95 280,90 C320,85 360,80 400,75 C440,72 480,68 520,62 C560,58 580,56 600,54 L600,95 C580,96 560,98 520,100 C480,105 440,108 400,110 C360,115 320,118 280,120 C240,125 200,130 160,138 C120,135 80,140 40,145 Z" fill="url(#gradSales)"/>
+            <path d="M40,90 C80,85 120,78 160,82 C200,72 240,60 280,55 C320,48 360,42 400,38 C440,34 480,28 520,22 C560,18 580,16 600,14 L600,54 C580,56 560,58 520,62 C480,68 440,72 400,75 C360,80 320,85 280,90 C240,95 200,105 160,112 C120,108 80,115 40,120 Z" fill="url(#gradLegal)"/>
+
+            <!-- Top lines for each -->
+            <path d="M40,165 C80,162 120,158 160,160 C200,155 240,148 280,145 C320,142 360,140 400,138 C440,135 480,130 520,128 C560,126 580,125 600,124" fill="none" stroke="#10B981" stroke-width="1.5" opacity="0.6"/>
+            <path d="M40,145 C80,140 120,135 160,138 C200,130 240,125 280,120 C320,118 360,115 400,110 C440,108 480,105 520,100 C560,98 580,96 600,95" fill="none" stroke="#38BDF8" stroke-width="1.5" opacity="0.6"/>
+            <path d="M40,120 C80,115 120,108 160,112 C200,105 240,95 280,90 C320,85 360,80 400,75 C440,72 480,68 520,62 C560,58 580,56 600,54" fill="none" stroke="#F59E0B" stroke-width="1.5" opacity="0.6"/>
+            <path d="M40,90 C80,85 120,78 160,82 C200,72 240,60 280,55 C320,48 360,42 400,38 C440,34 480,28 520,22 C560,18 580,16 600,14" fill="none" stroke="#8B5CF6" stroke-width="1.5" opacity="0.8"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Donut Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Cost by Team</span>
+          <div class="chart-toggle">
+            <button class="chart-toggle-btn active">Team</button>
+            <button class="chart-toggle-btn">Plugin</button>
+          </div>
+        </div>
+        <div class="donut-section">
+          <div class="donut-container">
+            <svg viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="20"/>
+              <!-- Legal 41% -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#8B5CF6" stroke-width="20"
+                stroke-dasharray="154 223" stroke-dashoffset="0"
+                transform="rotate(-90 80 80)" style="transition: stroke-dasharray 1s ease-out;"/>
+              <!-- Sales 29% -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#F59E0B" stroke-width="20"
+                stroke-dasharray="109 268" stroke-dashoffset="-154"
+                transform="rotate(-90 80 80)"/>
+              <!-- Engineering 19% -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#38BDF8" stroke-width="20"
+                stroke-dasharray="72 305" stroke-dashoffset="-263"
+                transform="rotate(-90 80 80)"/>
+              <!-- HR 11% -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#10B981" stroke-width="20"
+                stroke-dasharray="42 335" stroke-dashoffset="-335"
+                transform="rotate(-90 80 80)"/>
+            </svg>
+            <div class="donut-center">
+              <div class="donut-total-label">Total</div>
+              <div class="donut-total-value">$8.6K</div>
+            </div>
+          </div>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-left">
+                <div class="legend-dot" style="background:#8B5CF6"></div>
+                <span class="legend-name">Legal</span>
+              </div>
+              <div class="legend-bar-wrap"><div class="legend-bar" style="width:82%;background:#8B5CF6"></div></div>
+              <span class="legend-value">$3,540 (41%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left">
+                <div class="legend-dot" style="background:#F59E0B"></div>
+                <span class="legend-name">Sales</span>
+              </div>
+              <div class="legend-bar-wrap"><div class="legend-bar" style="width:58%;background:#F59E0B"></div></div>
+              <span class="legend-value">$2,494 (29%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left">
+                <div class="legend-dot" style="background:#38BDF8"></div>
+                <span class="legend-name">Engineering</span>
+              </div>
+              <div class="legend-bar-wrap"><div class="legend-bar" style="width:38%;background:#38BDF8"></div></div>
+              <span class="legend-value">$1,634 (19%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left">
+                <div class="legend-dot" style="background:#10B981"></div>
+                <span class="legend-name">HR</span>
+              </div>
+              <div class="legend-bar-wrap"><div class="legend-bar" style="width:22%;background:#10B981"></div></div>
+              <span class="legend-value">$946 (11%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Plugins Table -->
+    <div class="table-card">
+      <div class="chart-header">
+        <span class="chart-title">Top Plugins by Cost</span>
+        <span style="font-size:12px;color:var(--text-tertiary);cursor:pointer;">View all →</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Plugin</th>
+              <th>Team</th>
+              <th>Requests</th>
+              <th>Cost</th>
+              <th>30d Trend</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="plugin-name">
+                  <div class="plugin-icon" style="background:rgba(139,92,246,0.15)">⚖</div>
+                  Contract Review
+                </div>
+              </td>
+              <td class="td-team">Legal</td>
+              <td class="td-mono">2,340</td>
+              <td class="td-mono">$3,240</td>
+              <td>
+                <svg width="60" height="20" viewBox="0 0 60 20">
+                  <path d="M0,16 L6,14 L12,15 L18,11 L24,12 L30,9 L36,7 L42,8 L48,5 L54,3 L60,2" fill="none" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </td>
+              <td><span class="status-badge"><span class="status-dot"></span>Active</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="plugin-name">
+                  <div class="plugin-icon" style="background:rgba(245,158,11,0.15)">💰</div>
+                  Pipeline Analyzer
+                </div>
+              </td>
+              <td class="td-team">Sales</td>
+              <td class="td-mono">1,820</td>
+              <td class="td-mono">$2,180</td>
+              <td>
+                <svg width="60" height="20" viewBox="0 0 60 20">
+                  <path d="M0,14 L6,12 L12,13 L18,10 L24,8 L30,9 L36,6 L42,5 L48,7 L54,4 L60,3" fill="none" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </td>
+              <td><span class="status-badge"><span class="status-dot"></span>Active</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="plugin-name">
+                  <div class="plugin-icon" style="background:rgba(56,189,248,0.15)">🔍</div>
+                  Code Review
+                </div>
+              </td>
+              <td class="td-team">Engineering</td>
+              <td class="td-mono">1,200</td>
+              <td class="td-mono">$1,890</td>
+              <td>
+                <svg width="60" height="20" viewBox="0 0 60 20">
+                  <path d="M0,12 L6,10 L12,11 L18,8 L24,9 L30,7 L36,5 L42,6 L48,4 L54,3 L60,2" fill="none" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </td>
+              <td><span class="status-badge"><span class="status-dot"></span>Active</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="plugin-name">
+                  <div class="plugin-icon" style="background:rgba(244,63,94,0.15)">📝</div>
+                  Draft Outreach
+                </div>
+              </td>
+              <td class="td-team">Sales</td>
+              <td class="td-mono">980</td>
+              <td class="td-mono">$1,140</td>
+              <td>
+                <svg width="60" height="20" viewBox="0 0 60 20">
+                  <path d="M0,15 L6,13 L12,14 L18,12 L24,10 L30,11 L36,8 L42,9 L48,6 L54,5 L60,4" fill="none" stroke="#F43F5E" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </td>
+              <td><span class="status-badge"><span class="status-dot"></span>Active</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="plugin-name">
+                  <div class="plugin-icon" style="background:rgba(16,185,129,0.15)">👤</div>
+                  Onboarding Assistant
+                </div>
+              </td>
+              <td class="td-team">HR</td>
+              <td class="td-mono">640</td>
+              <td class="td-mono">$720</td>
+              <td>
+                <svg width="60" height="20" viewBox="0 0 60 20">
+                  <path d="M0,10 L6,11 L12,9 L18,12 L24,10 L30,8 L36,9 L42,7 L48,8 L54,6 L60,5" fill="none" stroke="#10B981" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </td>
+              <td><span class="status-badge"><span class="status-dot"></span>Active</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Animated counter function
+function animateCounter(el, target, prefix = '', suffix = '', duration = 1200) {
+  const start = performance.now();
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const value = Math.round(easeOut(progress) * target);
+
+    if (prefix === '$' && target >= 1000) {
+      el.textContent = prefix + value.toLocaleString() + suffix;
+    } else if (prefix === '$' && target < 100) {
+      el.textContent = prefix + (easeOut(progress) * target).toFixed(2) + suffix;
+    } else {
+      el.textContent = prefix + value.toLocaleString() + suffix;
+    }
+
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// Trigger counters after a delay (simulating data load)
+setTimeout(() => {
+  animateCounter(document.getElementById('heroAmount'), 42847, '$', '', 1400);
+}, 400);
+
+setTimeout(() => {
+  animateCounter(document.getElementById('kpi1'), 8640, '$', '', 1000);
+  animateCounter(document.getElementById('kpi2'), 14280, '', '', 1000);
+}, 600);
+
+setTimeout(() => {
+  const kpi3 = document.getElementById('kpi3');
+  const start3 = performance.now();
+  function update3(now) {
+    const p = Math.min((now - start3) / 1000, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    kpi3.textContent = '$' + (ease * 0.61).toFixed(2);
+    if (p < 1) requestAnimationFrame(update3);
+  }
+  requestAnimationFrame(update3);
+}, 700);
+
+setTimeout(() => {
+  animateCounter(document.getElementById('kpi4'), 1247, '', 'h', 1000);
+}, 800);
+
+// Toggle button interactions
+document.querySelectorAll('.date-toggle').forEach(toggle => {
+  toggle.querySelectorAll('.date-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggle.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+
+document.querySelectorAll('.chart-toggle').forEach(toggle => {
+  toggle.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggle.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+</script>
+
+</body>
+</html>
